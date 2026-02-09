@@ -1,0 +1,18 @@
+{
+  "name": "xyz.ooo-unchain-ooo.third-sdk",
+  "version": "1.0.0",
+  "displayName": "THIRD SDK",
+  "description": "Let's implement the THIRD SDK in your game!With Social Tips from THIRD, viewers can trigger all kinds of gimmicks and interactions directly in your game!",
+  "author": {
+    "name": "UNCHAIN Co.,Ltd"
+  },
+  "samples": [
+    {
+      "displayName": "ThirdSdkSample",
+      "path": "Samples~/ThirdSdkSample"
+    }
+  ],
+  "dependencies": {
+    "com.mikeschweitzer.websocket": "3.2.0"
+  }
+}
