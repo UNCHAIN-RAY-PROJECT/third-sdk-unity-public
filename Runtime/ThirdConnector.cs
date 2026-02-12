@@ -1,9 +1,8 @@
+using System;
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Networking;
-using MikeSchweitzer.WebSocket;
 
 namespace UNCHAIN.ThirdSdk
 {
@@ -19,16 +18,24 @@ namespace UNCHAIN.ThirdSdk
         public UnityEvent<ThirdResponse> MessageReceived;
         public UnityEvent<string> ErrorMessageReceived;
 
-        private WebSocketConnection con;
+        private readonly ThirdMessageParser parser = new ThirdMessageParser();
+        private IThirdWebSocketClient client;
         private Coroutine recon;
+
+        public Func<ThirdConnector, IThirdWebSocketClient> WebSocketClientFactory { get; set; }
 
         private void OnDestroy()
         {
-            if (this.con != null)
-            {
-                this.con.Disconnect();
-                this.con = null;
-            }
+            this.UnsubscribeClientEvents();
+            this.client?.Disconnect();
+            this.client = null;
+        }
+
+        public void SetWebSocketClient(IThirdWebSocketClient webSocketClient)
+        {
+            this.UnsubscribeClientEvents();
+            this.client = webSocketClient;
+            this.SubscribeClientEvents();
         }
 
         public IEnumerator Connect(string streamId)
@@ -37,124 +44,106 @@ namespace UNCHAIN.ThirdSdk
             {
                 yield break;
             }
+
             if (string.IsNullOrEmpty(streamId))
             {
                 Debug.Log("[THIRD] streamId is empty.");
                 yield break;
             }
 
-            var url = this.url;
-            var req = UnityWebRequest.PostWwwForm($"{url}/api/v1/auth/ws-token", "POST");
-            req.SetRequestHeader("Content-Type", "application/json");
+            var request = UnityWebRequest.PostWwwForm($"{this.url}/api/v1/auth/ws-token", "POST");
+            request.SetRequestHeader("Content-Type", "application/json");
 
-            var json = $"{{\"appId\":\"{appId}\",\"apiKey\":\"{apiKey}\",\"streamCode\":\"{streamId}\"}}";
+            var json = $"{{\"appId\":\"{this.appId}\",\"apiKey\":\"{this.apiKey}\",\"streamCode\":\"{streamId}\"}}";
             var postData = System.Text.Encoding.UTF8.GetBytes(json);
-            req.uploadHandler = new UploadHandlerRaw(postData);
+            request.uploadHandler = new UploadHandlerRaw(postData);
 
-            yield return req.SendWebRequest();
+            yield return request.SendWebRequest();
 
-            if (req.result != UnityWebRequest.Result.Success)
+            if (request.result != UnityWebRequest.Result.Success)
             {
                 Debug.Log("[THIRD] get token failed.");
-                Debug.Log(req.error);
+                Debug.Log(request.error);
                 yield break;
             }
 
-            var token = "";
-            try
-            {
-                var raw = JsonUtility.FromJson<ThirdResponse_token>(req.downloadHandler.text);
-                token = raw.accessToken;
-            }
-            catch (System.Exception e)
+            if (!this.parser.TryParseToken(request.downloadHandler.text, out var token))
             {
                 Debug.Log("[THIRD] get token failed.");
-                Debug.Log(e);
                 yield break;
             }
 
-            var wsurl = $"{this.wsurl}/api/game?streamCode={streamId}&token={token}";
-            this.con = this.gameObject.AddComponent<WebSocketConnection>();
-            this.con.DesiredConfig = new WebSocketConfig { Url = wsurl };
-            this.con.Connect();
-            this.con.StateChanged += OnStateChanged;
-            this.con.MessageReceived += OnMessageReceived;
-            this.con.ErrorMessageReceived += OnErrorMessageReceived;
-            yield break;
+            var webSocketUrl = $"{this.wsurl}/api/game?streamCode={streamId}&token={token}";
+            this.EnsureClient();
+            this.client.Configure(webSocketUrl);
+            this.client.Connect();
         }
 
         public void Disconnect()
         {
-            if (this.con == null)
+            if (this.client == null)
             {
                 Debug.Log("[THIRD] not connected.");
                 return;
             }
-            this.con.Disconnect();
-            this.con = null;
+
+            this.client.Disconnect();
+            this.client = null;
         }
 
         public IEnumerator Reconnect()
         {
-            if (this.con == null)
+            if (this.client == null)
             {
                 Debug.Log("[THIRD] not connected.");
                 yield break;
             }
-            this.con.Disconnect();
+
+            this.client.Disconnect();
             yield return new WaitForSeconds(5.0f);
-            yield return new WaitUntil(() => this.con.State == WebSocketState.Disconnected);
-            this.con.Connect();
+            yield return new WaitUntil(() => this.client != null && this.client.State == ThirdWebSocketState.Disconnected);
+            this.client.Connect();
         }
 
-        private void OnStateChanged(WebSocketConnection connection, WebSocketState oldState, WebSocketState newState)
+        private void OnStateChanged(ThirdWebSocketState oldState, ThirdWebSocketState newState)
         {
             Debug.Log($"[THIRD] WebSocket state changed from {oldState} to {newState}");
+
             switch (newState)
             {
-                case WebSocketState.Connected:
-                    {
-                        this.Connected.Invoke();
-                    }
+                case ThirdWebSocketState.Connected:
+                    this.Connected.Invoke();
                     break;
-                case WebSocketState.Disconnected:
+                case ThirdWebSocketState.Disconnected:
+                    this.Disconnected.Invoke();
+                    if (this.recon != null)
                     {
-                        this.Disconnected.Invoke();
-                        if (this.recon != null)
-                        {
-                            this.StopCoroutine(this.recon);
-                            this.recon = null;
-                        }
-                        this.recon = this.StartCoroutine(this.Reconnect());
+                        this.StopCoroutine(this.recon);
+                        this.recon = null;
                     }
+
+                    this.recon = this.StartCoroutine(this.Reconnect());
                     break;
             }
         }
 
-        private void OnMessageReceived(WebSocketConnection connection, WebSocketMessage message)
+        private void OnMessageReceived(string message)
         {
-            Debug.Log($"[THIRD] Message received from server: {message.String}");
-            var raw = JsonUtility.FromJson<ThirdResponse_root>(message.String);
-            switch (raw.type)
+            Debug.Log($"[THIRD] Message received from server: {message}");
+            var parsed = this.parser.ParseIncomingMessage(message);
+
+            if (!string.IsNullOrEmpty(parsed.OutgoingMessage))
             {
-                case "ping":
-                    {
-                        var timespan = System.DateTime.UtcNow - new System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc);
-                        var ts = (uint)timespan.TotalSeconds;
-                        SendMessageToServer($"{{\"type\":\"pong\",\"data\":{{\"ts\":{ts}}}}}");
-                    }
-                    break;
-                case "actionExecuted":
-                    {
-                        var txId = raw.data.txId;
-                        SendMessageToServer($"{{\"type\":\"actionAck\",\"data\":{{\"txId\":\"{txId}\",\"status\":\"success\"}}}}");
-                        this.MessageReceived.Invoke(raw.data);
-                    }
-                    break;
+                this.SendMessageToServer(parsed.OutgoingMessage);
+            }
+
+            if (parsed.Type == ThirdInboundMessageType.ActionExecuted && parsed.Response != null)
+            {
+                this.MessageReceived.Invoke(parsed.Response);
             }
         }
 
-        private void OnErrorMessageReceived(WebSocketConnection connection, string errorMessage)
+        private void OnErrorMessageReceived(string errorMessage)
         {
             Debug.LogError($"[THIRD] WebSocket error: {errorMessage}");
             this.ErrorMessageReceived.Invoke(errorMessage);
@@ -162,10 +151,10 @@ namespace UNCHAIN.ThirdSdk
 
         private void SendMessageToServer(string message)
         {
-            if (this.con != null && this.con.State == WebSocketState.Connected)
+            if (this.client != null && this.client.State == ThirdWebSocketState.Connected)
             {
                 Debug.Log($"[THIRD] Message sent to server: {message}");
-                this.con.AddOutgoingMessage(message);
+                this.client.Send(message);
             }
         }
 
@@ -176,22 +165,69 @@ namespace UNCHAIN.ThirdSdk
                 Debug.Log("[THIRD] url is empty.");
                 return false;
             }
+
             if (string.IsNullOrEmpty(this.appId))
             {
                 Debug.Log("[THIRD] appId is empty.");
                 return false;
             }
+
             if (string.IsNullOrEmpty(this.apiKey))
             {
                 Debug.Log("[THIRD] apiKey is empty.");
                 return false;
             }
-            if (this.con != null)
+
+            if (this.client != null)
             {
                 Debug.Log("[THIRD] already connected.");
                 return false;
             }
+
             return true;
+        }
+
+        private void EnsureClient()
+        {
+            if (this.client != null)
+            {
+                return;
+            }
+
+            if (this.WebSocketClientFactory != null)
+            {
+                this.client = this.WebSocketClientFactory(this);
+            }
+            else
+            {
+                this.client = this.gameObject.AddComponent<ThirdWebSocketConnectionAdapter>();
+            }
+
+            this.SubscribeClientEvents();
+        }
+
+        private void SubscribeClientEvents()
+        {
+            if (this.client == null)
+            {
+                return;
+            }
+
+            this.client.StateChanged += this.OnStateChanged;
+            this.client.MessageReceived += this.OnMessageReceived;
+            this.client.ErrorMessageReceived += this.OnErrorMessageReceived;
+        }
+
+        private void UnsubscribeClientEvents()
+        {
+            if (this.client == null)
+            {
+                return;
+            }
+
+            this.client.StateChanged -= this.OnStateChanged;
+            this.client.MessageReceived -= this.OnMessageReceived;
+            this.client.ErrorMessageReceived -= this.OnErrorMessageReceived;
         }
     }
 }
