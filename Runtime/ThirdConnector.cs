@@ -103,6 +103,7 @@ namespace UNCHAIN.ThirdSdk
                 return;
             }
 
+            this.UnsubscribeClientEvents();
             this.client.Disconnect();
             this.client = null;
         }
