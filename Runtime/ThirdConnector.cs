@@ -103,6 +103,7 @@ namespace UNCHAIN.ThirdSdk
                 return;
             }
 
+            this.Disconnected?.Invoke();
             this.UnsubscribeClientEvents();
             this.client.Disconnect();
             this.client = null;

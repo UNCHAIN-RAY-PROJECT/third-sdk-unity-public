@@ -34,7 +34,16 @@ namespace UNCHAIN.ThirdSdk
                 return false;
             }
 
-            var tokenResponse = JsonUtility.FromJson<ThirdResponse_token>(json);
+            ThirdResponse_token tokenResponse;
+            try
+            {
+                tokenResponse = JsonUtility.FromJson<ThirdResponse_token>(json);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+
             if (tokenResponse == null || string.IsNullOrEmpty(tokenResponse.accessToken))
             {
                 return false;
