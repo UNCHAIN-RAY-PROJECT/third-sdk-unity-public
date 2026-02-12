@@ -3,6 +3,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Networking;
+using UnityEngine.Serialization;
 
 namespace UNCHAIN.ThirdSdk
 {
@@ -13,10 +14,17 @@ namespace UNCHAIN.ThirdSdk
         public string appId;
         public string apiKey;
 
-        public UnityEvent Connected;
-        public UnityEvent Disconnected;
-        public UnityEvent<ThirdResponse> MessageReceived;
-        public UnityEvent<string> ErrorMessageReceived;
+        [FormerlySerializedAs("Connected")]
+        public UnityEvent Connected = new UnityEvent();
+
+        [FormerlySerializedAs("Disconnected")]
+        public UnityEvent Disconnected = new UnityEvent();
+
+        [FormerlySerializedAs("MessageReceived")]
+        public UnityEvent<ThirdResponse> MessageReceived = new UnityEvent<ThirdResponse>();
+
+        [FormerlySerializedAs("ErrorMessageReceived")]
+        public UnityEvent<string> ErrorMessageReceived = new UnityEvent<string>();
 
         private readonly ThirdMessageParser parser = new ThirdMessageParser();
         private IThirdWebSocketClient client;
@@ -26,6 +34,12 @@ namespace UNCHAIN.ThirdSdk
 
         private void OnDestroy()
         {
+            if (this.recon != null)
+            {
+                this.StopCoroutine(this.recon);
+                this.recon = null;
+            }
+
             this.UnsubscribeClientEvents();
             this.client?.Disconnect();
             this.client = null;
@@ -51,7 +65,7 @@ namespace UNCHAIN.ThirdSdk
                 yield break;
             }
 
-            var request = UnityWebRequest.PostWwwForm($"{this.url}/api/v1/auth/ws-token", "POST");
+            using var request = UnityWebRequest.PostWwwForm($"{this.url}/api/v1/auth/ws-token", "POST");
             request.SetRequestHeader("Content-Type", "application/json");
 
             var json = $"{{\"appId\":\"{this.appId}\",\"apiKey\":\"{this.apiKey}\",\"streamCode\":\"{streamId}\"}}";
@@ -73,7 +87,9 @@ namespace UNCHAIN.ThirdSdk
                 yield break;
             }
 
-            var webSocketUrl = $"{this.wsurl}/api/game?streamCode={streamId}&token={token}";
+            var escapedStreamId = UnityWebRequest.EscapeURL(streamId);
+            var escapedToken = UnityWebRequest.EscapeURL(token);
+            var webSocketUrl = $"{this.wsurl}/api/game?streamCode={escapedStreamId}&token={escapedToken}";
             this.EnsureClient();
             this.client.Configure(webSocketUrl);
             this.client.Connect();
@@ -112,10 +128,10 @@ namespace UNCHAIN.ThirdSdk
             switch (newState)
             {
                 case ThirdWebSocketState.Connected:
-                    this.Connected.Invoke();
+                    this.Connected?.Invoke();
                     break;
                 case ThirdWebSocketState.Disconnected:
-                    this.Disconnected.Invoke();
+                    this.Disconnected?.Invoke();
                     if (this.recon != null)
                     {
                         this.StopCoroutine(this.recon);
@@ -139,14 +155,14 @@ namespace UNCHAIN.ThirdSdk
 
             if (parsed.Type == ThirdInboundMessageType.ActionExecuted && parsed.Response != null)
             {
-                this.MessageReceived.Invoke(parsed.Response);
+                this.MessageReceived?.Invoke(parsed.Response);
             }
         }
 
         private void OnErrorMessageReceived(string errorMessage)
         {
             Debug.LogError($"[THIRD] WebSocket error: {errorMessage}");
-            this.ErrorMessageReceived.Invoke(errorMessage);
+            this.ErrorMessageReceived?.Invoke(errorMessage);
         }
 
         private void SendMessageToServer(string message)
