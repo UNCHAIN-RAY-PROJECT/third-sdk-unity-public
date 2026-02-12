@@ -103,6 +103,12 @@ namespace UNCHAIN.ThirdSdk
                 return;
             }
 
+            if (this.recon != null)
+            {
+                this.StopCoroutine(this.recon);
+                this.recon = null;
+            }
+
             this.Disconnected?.Invoke();
             this.UnsubscribeClientEvents();
             this.client.Disconnect();
@@ -114,13 +120,23 @@ namespace UNCHAIN.ThirdSdk
             if (this.client == null)
             {
                 Debug.Log("[THIRD] not connected.");
+                this.recon = null;
                 yield break;
             }
 
             this.client.Disconnect();
             yield return new WaitForSeconds(5.0f);
-            yield return new WaitUntil(() => this.client != null && this.client.State == ThirdWebSocketState.Disconnected);
+
+            yield return new WaitUntil(() => this.client == null || this.client.State == ThirdWebSocketState.Disconnected);
+
+            if (this.client == null)
+            {
+                this.recon = null;
+                yield break;
+            }
+
             this.client.Connect();
+            this.recon = null;
         }
 
         private void OnStateChanged(ThirdWebSocketState oldState, ThirdWebSocketState newState)
