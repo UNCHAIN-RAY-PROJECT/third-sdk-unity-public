@@ -216,7 +216,12 @@ namespace UNCHAIN.ThirdSdk
             }
             else
             {
-                this.client = this.gameObject.AddComponent<ThirdWebSocketConnectionAdapter>();
+                this.client = this.gameObject.GetComponent<ThirdWebSocketConnectionAdapter>();
+
+                if (this.client == null)
+                {
+                    this.client = this.gameObject.AddComponent<ThirdWebSocketConnectionAdapter>();
+                }
             }
 
             this.SubscribeClientEvents();
