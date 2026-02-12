@@ -212,7 +212,7 @@ namespace UNCHAIN.ThirdSdk
                 return false;
             }
 
-            if (this.client != null)
+            if (this.client != null && this.client.State != ThirdWebSocketState.Disconnected)
             {
                 Debug.Log("[THIRD] already connected.");
                 return false;
