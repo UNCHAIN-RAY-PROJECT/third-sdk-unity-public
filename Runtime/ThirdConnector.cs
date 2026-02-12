@@ -109,10 +109,10 @@ namespace UNCHAIN.ThirdSdk
                 this.recon = null;
             }
 
-            this.Disconnected?.Invoke();
             this.UnsubscribeClientEvents();
             this.client.Disconnect();
             this.client = null;
+            this.Disconnected?.Invoke();
         }
 
         public IEnumerator Reconnect()
