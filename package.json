@@ -13,6 +13,6 @@
     }
   ],
   "dependencies": {
-    "com.mikeschweitzer.websocket": "3.2.0"
+    "com.mikeschweitzer.websocket": "https://github.com/mikerochip/unity-websocket.git#1577a50ab7348d1a6fc4b320a3393e0e135b0f5f"
   }
 }
