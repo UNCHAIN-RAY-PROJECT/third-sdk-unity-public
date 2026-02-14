@@ -5,10 +5,10 @@ THIRD SDK を導入する場合は、Unity Package Manager の **Install a Packa
 手順は公式ドキュメント [Install a Package from a Git URL](https://docs.unity3d.com/Manual/upm-ui-giturl.html) を参照してください。
 
 ### 1) この SDK 本体を導入（推奨: タグ固定）
-- 推奨（例: `v1.0.0`）
+- 推奨（実在するタグに固定。`<tag>` は実在タグに置き換えてください）
 
 ```text
-https://github.com/UNCHAIN-RAY-PROJECT/sneo-unity-sdk.git?path=/Packages/ThirdSdk#v1.0.0
+https://github.com/UNCHAIN-RAY-PROJECT/sneo-unity-sdk.git?path=/Packages/ThirdSdk#<tag>
 ```
 
 - タグ未作成時の暫定例（開発中のみ）
@@ -34,7 +34,7 @@ https://github.com/mikerochip/unity-websocket.git#1577a50ab7348d1a6fc4b320a3393e
 {
   "dependencies": {
     "com.mikeschweitzer.websocket": "https://github.com/mikerochip/unity-websocket.git#1577a50ab7348d1a6fc4b320a3393e0e135b0f5f",
-    "xyz.ooo-unchain-ooo.third-sdk": "https://github.com/UNCHAIN-RAY-PROJECT/sneo-unity-sdk.git?path=/Packages/ThirdSdk#v1.0.0"
+    "xyz.ooo-unchain-ooo.third-sdk": "https://github.com/UNCHAIN-RAY-PROJECT/sneo-unity-sdk.git?path=/Packages/ThirdSdk#<tag>"
   }
 }
 ```
