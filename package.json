@@ -11,8 +11,5 @@
       "displayName": "ThirdSdkSample",
       "path": "Samples~/ThirdSdkSample"
     }
-  ],
-  "dependencies": {
-    "com.mikeschweitzer.websocket": "3.2.0"
-  }
+  ]
 }
