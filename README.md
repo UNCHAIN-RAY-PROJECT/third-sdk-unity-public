@@ -5,16 +5,16 @@ THIRD SDK を導入する場合は、Unity Package Manager の **Install a Packa
 手順は公式ドキュメント [Install a Package from a Git URL](https://docs.unity3d.com/Manual/upm-ui-giturl.html) を参照してください。
 
 ### 1) この SDK 本体を導入（推奨: タグ固定）
-- 推奨（実在するタグに固定。`<tag>` は実在タグに置き換えてください）
+- 推奨（実在するタグに固定）
 
 ```text
-https://github.com/UNCHAIN-RAY-PROJECT/sneo-unity-sdk.git?path=/Packages/ThirdSdk#<tag>
+https://github.com/UNCHAIN-RAY-PROJECT/third-sdk-unity-public.git#vX.Y.Z
 ```
 
 - タグ未作成時の暫定例（開発中のみ）
 
 ```text
-https://github.com/UNCHAIN-RAY-PROJECT/sneo-unity-sdk.git?path=/Packages/ThirdSdk#main
+https://github.com/UNCHAIN-RAY-PROJECT/third-sdk-unity-public.git#main
 ```
 
 > 本番利用では再現性のため、`#main` ではなく `#vX.Y.Z` のようなタグ固定を推奨します。
@@ -22,6 +22,8 @@ https://github.com/UNCHAIN-RAY-PROJECT/sneo-unity-sdk.git?path=/Packages/ThirdSd
 ### 2) 必須依存 `com.mikeschweitzer.websocket` を導入
 `ThirdConnector` は `com.mikeschweitzer.websocket` に依存しています。
 **この依存を追加しない場合、ThirdConnector はコンパイルできません。**
+また、公開用のこの SDK では `package.json` の `dependencies` で自動解決される前提にしていないため、
+導入先プロジェクトの `Packages/manifest.json` に明示的な追加が必要です。
 
 ```text
 https://github.com/mikerochip/unity-websocket.git#1577a50ab7348d1a6fc4b320a3393e0e135b0f5f
@@ -34,7 +36,7 @@ https://github.com/mikerochip/unity-websocket.git#1577a50ab7348d1a6fc4b320a3393e
 {
   "dependencies": {
     "com.mikeschweitzer.websocket": "https://github.com/mikerochip/unity-websocket.git#1577a50ab7348d1a6fc4b320a3393e0e135b0f5f",
-    "xyz.ooo-unchain-ooo.third-sdk": "https://github.com/UNCHAIN-RAY-PROJECT/sneo-unity-sdk.git?path=/Packages/ThirdSdk#<tag>"
+    "xyz.ooo-unchain-ooo.third-sdk": "https://github.com/UNCHAIN-RAY-PROJECT/third-sdk-unity-public.git#vX.Y.Z"
   }
 }
 ```
